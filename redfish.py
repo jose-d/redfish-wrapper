@@ -5,26 +5,31 @@ import urllib.parse
 import requests
 import logging
 from functools import reduce
-
+import typing
 
 class Redfish(metaclass=ABCMeta):
+
+    # some type aliases
+    
 
     TYPE = "REDFISH"
     SYSTEM_PREFIX = '/redfish/v1/Systems'
     CHASSIS_PREFIX = '/redfish/v1/Chassis'
     MANAGER_PREFIX = '/redfish/v1/Managers'
 
-    def __init__(self, ipmi_ip, ipmi_user, ipmi_pass, verifySSL):
+    T_list_str = typing.List[str]
+
+    def __init__(self, ipmi_host:str, ipmi_user:str, ipmi_pass:str, verifySSL:str):
 
         logging.basicConfig(level=logging.INFO)
 
-        self.ipmi_ip = ipmi_ip
+        self.ipmi_ip = ipmi_host
         self.ipmi_user = ipmi_user
         self.ipmi_pass = ipmi_pass
         self.auth_tuple = (self.ipmi_user, self.ipmi_pass)
         self.verifySSL = verifySSL
 
-        self._buildBaseUrl(ipmi_ip)
+        self._buildBaseUrl(ipmi_host)
 
         if not verifySSL:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -44,46 +49,55 @@ class Redfish(metaclass=ABCMeta):
         logging.info(f"_getChassisURL(0): {self._getChassisURL(0)}")
         logging.info(f"_getManagerURL(0): {self._getManagerURL(0)}")
 
-    def _getSystemURL(self, i):
+    def _getSystemURL(self, i:int) -> str:
 
-        return Redfish.__mergeUrlElements([self.url_base, self.SYSTEM_PREFIX, self.systems[i]])
-
-
-    def _getChassisURL(self, i):
-
-        return Redfish.__mergeUrlElements([self.url_base, self.CHASSIS_PREFIX, self.chassis[self.systems[i]]])
+        return Redfish.mergeUrlElements([self.url_base, self.SYSTEM_PREFIX, self.systems[i]])
 
 
-    def _getManagerURL(self, i):
+    def _getChassisURL(self, i:int) -> str:
 
-        return Redfish.__mergeUrlElements([self.url_base, self.MANAGER_PREFIX, self.managers[self.systems[i]]])
+        return Redfish.mergeUrlElements([self.url_base, self.CHASSIS_PREFIX, self.chassis[self.systems[i]]])
+
+
+    def _getManagerURL(self, i:int) -> str:
+
+        return Redfish.mergeUrlElements([self.url_base, self.MANAGER_PREFIX, self.managers[self.systems[i]]])
 
 
     @staticmethod
-    def _prependHttpWhenMissing(url):
+    def _prependHttpWhenMissing(url:str) -> str:
 
         if not re.match('(?:http|https)://', url):
             return f'http://{url}'
         return url
 
-    def _buildBaseUrl(self, ipmi_ip):
+    @staticmethod
+    def mergeDicts(dict1:dict, dict2:dict) -> dict:
+        """ merge dicts
+        ref: https://stackoverflow.com/questions/38987/how-do-i-merge-two-dictionaries-in-a-single-expression-in-python-taking-union-o
+        """
 
-        self.url_base = Redfish._prependHttpWhenMissing(ipmi_ip)
+        mergedDict = {**dict1, **dict2}
+        return mergedDict
 
-    def _parseSystems(self):
+    def _buildBaseUrl(self, ipmi_host:str) -> str:
+
+        self.url_base = Redfish._prependHttpWhenMissing(ipmi_host)
+
+    def _parseSystems(self) -> dict:
         return self.__getMembers(self.SYSTEM_PREFIX)
 
     @staticmethod
-    def __getLastElementFromUrl(url):
+    def __getLastElementFromUrl(url:str) -> str:
         """ something/else/element -> returns "element" """
         return url.rsplit('/', 1)[-1]
 
     @staticmethod
-    def __appendTrailingSlashIfMissing(url):
+    def __appendTrailingSlashIfMissing(url:str) -> str:
         return str(url) + '/' if not url.endswith('/') else url
 
     @staticmethod
-    def __mergeUrlElements(urls):
+    def mergeUrlElements(urls:T_list_str) -> str:
         """ from [ 'https://foo.bar','bre','keke' ] makes "https://foo.bar/bre/keke" """
 
         for url in urls:
@@ -92,19 +106,19 @@ class Redfish(metaclass=ABCMeta):
 
         return reduce(urllib.parse.urljoin, urls)
 
-    def __getSystemJSONs(self):
+    def __getSystemJSONs(self) -> dict:
 
         systemJSONs = []
 
         for system in self.systems:
-            url = Redfish.__mergeUrlElements([self.url_base, self.SYSTEM_PREFIX, system])
+            url = Redfish.mergeUrlElements([self.url_base, self.SYSTEM_PREFIX, system])
             r = requests.get(url, auth=self.auth_tuple, verify=self.verifySSL)
             systemJSONs.append(r.json())
 
         return systemJSONs
 
 
-    def _parseChassis(self):
+    def _parseChassis(self) -> dict:
 
         chassis_dict = {}
 
@@ -113,19 +127,18 @@ class Redfish(metaclass=ABCMeta):
 
         return chassis_dict
 
-    def _parseManagers(self):
+    def _parseManagers(self) -> dict:
 
         managers_dict = {}
 
         for system,systemJSON in zip(self.systems,self.systemsJSON):
-            #print(systemJSON['Links']['ManagedBy'][0]['@odata.id'])
             managers_dict[system] = str(Redfish.__getLastElementFromUrl(systemJSON['Links']['ManagedBy'][0]['@odata.id']))
 
         return managers_dict
 
-    def __getMembers(self, url):
+    def __getMembers(self, url) -> T_list_str:
 
-        url = Redfish.__mergeUrlElements([self.url_base,url])
+        url = Redfish.mergeUrlElements([self.url_base,url])
         r = requests.get(url, auth=self.auth_tuple, verify=self.verifySSL)
         members = r.json()['Members']
         result_list = []
@@ -145,7 +158,7 @@ class Redfish(metaclass=ABCMeta):
 
     # methods working across vendors
 
-    def getPowerState(self):
+    def getPowerState(self) -> str:
 
         system_i = 0
         url = self._getSystemURL(system_i)
@@ -153,7 +166,7 @@ class Redfish(metaclass=ABCMeta):
 
         return r.json()['PowerState']
 
-    def getThermalDict(self):
+    def getThermalDict(self) -> dict:
 
         system_i = 0
 
