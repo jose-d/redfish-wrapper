@@ -4,7 +4,7 @@ Simple python wrapper for RedFish HTTP API.
 
 ## Features - intel:
 - IPMI module reboot
-- server power actions - `"PushPowerButton", "On", "GracefulShutdown", "ForceRestmergeUrlElementseOn", "ForceOff"`
+- server power actions - `"PushPowerButton", "On", "GracefulShutdown", "ForceOn", "ForceOff"`
 - get system power consumption
 - get proprietary metrics - `"ProcessorPowerWatt", "MemoryPowerWatt", "ProcessorBandwidthPercent", "MemoryBandwidthPercent","IOBandwidthGBps"`
 - get Thermals stats
