@@ -8,10 +8,7 @@ from functools import reduce
 import typing
 
 class Redfish(metaclass=ABCMeta):
-
-    # some type aliases
-    
-
+   
     TYPE = "REDFISH"
     SYSTEM_PREFIX = '/redfish/v1/Systems'
     CHASSIS_PREFIX = '/redfish/v1/Chassis'
@@ -19,15 +16,16 @@ class Redfish(metaclass=ABCMeta):
 
     T_list_str = typing.List[str]
 
-    def __init__(self, ipmi_host:str, ipmi_user:str, ipmi_pass:str, verifySSL:str):
+    def __init__(self, ipmi_host:str, ipmi_user:str, ipmi_pass:str, verifySSL:str, name:str):
 
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.WARNING)
 
         self.ipmi_ip = ipmi_host
         self.ipmi_user = ipmi_user
         self.ipmi_pass = ipmi_pass
         self.auth_tuple = (self.ipmi_user, self.ipmi_pass)
         self.verifySSL = verifySSL
+        self.name = name
 
         self._buildBaseUrl(ipmi_host)
 
